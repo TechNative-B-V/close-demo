@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.21.0 ()
+  creationTimestamp: null
+  labels:
+    io.kompose.service: restservice
+  name: restservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: restservice
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.21.0 ()
+      creationTimestamp: null
+      labels:
+        io.kompose.service: restservice
+    spec:
+      containers:
+      - args:
+        - gunicorn
+        - -c
+        - ../gunicorn_conf.py
+        - vlanscanner:API
+        env:
+        - name: CELERY_BACKEND
+          value: redis://redis:6379/0
+        - name: CELERY_BROKER
+          value: redis://redis:6379/0
+        image: jorehn/vlanscanner:0.1
+        imagePullPolicy: ""
+        name: restservice
+        ports:
+        - containerPort: 8000
+        resources: {}
+        tty: true
+      restartPolicy: Always
+      serviceAccountName: ""
+      volumes: null
+status: {}
