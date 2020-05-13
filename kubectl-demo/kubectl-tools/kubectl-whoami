@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# this plugin makes use of the `kubectl config` command in order to output
+# information about the current user, based on the currently selected context
+kubectl config view --template='{{ range .contexts }}{{ if eq .name "'$(kubectl config current-context)'" }}Current user: {{ printf "%s\n" .context.user }}{{ end }}{{ end }}'
