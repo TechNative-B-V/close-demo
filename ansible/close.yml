@@ -1,0 +1,29 @@
+---
+- hosts: all
+  vars:
+    mariadb_version: '10.4'
+  roles:
+    - common
+  tags:
+    - common
+
+- hosts: close_db
+  vars:
+    mariadb_version: '10.4'
+    mariadb_root_password: S3cr3tPassw0rd
+  roles:
+    - mariadb
+  tags:
+    - mariadb
+
+- hosts: close_db
+  roles:
+    - galera
+  tags:
+    - galera
+
+#     - galera
+
+# - hosts: close_proxysql
+#   roles:
+#     - proxysql

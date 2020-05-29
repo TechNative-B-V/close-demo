@@ -1,0 +1,51 @@
+---
+# # tasks file for mariadb
+- name: APT - Install mariadb
+  apt:
+    update_cache: yes
+    state: latest
+    force: yes
+    name:
+      - "mariadb-server-{{ mariadb_version }}"
+      - "mariadb-client-{{ mariadb_version }}"
+      - galera-4
+      - rsync
+      - python3-mysqldb
+      - python3-pymysql
+
+# We need to set a root password first after a clean install
+# For this we use the login_unix_socket, else a connection will fail
+- name: MariaDB - Update root user password
+  mysql_user:
+    name: root
+    password: "{{ mariadb_root_password }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  become: true
+  no_log: true
+  # Ignore errors if there already is a password set
+  ignore_errors: true
+
+- name: MariaDB | configuring root .my.cnf
+  become: true
+  no_log: true
+  template:
+    src: "root/my.cnf.j2"
+    dest: "/root/.my.cnf"
+    owner: "root"
+    group: "root"
+    mode: 0600
+
+- name: MariaDB - Configure root user
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ mariadb_root_password }}"
+    priv: "*.*:ALL,GRANT"
+  become: true
+  no_log: true
+  with_items:
+    - "{{ ansible_hostname }}"
+    - "127.0.0.1"
+    - "::1"
+    - "localhost"
+    - "%"
