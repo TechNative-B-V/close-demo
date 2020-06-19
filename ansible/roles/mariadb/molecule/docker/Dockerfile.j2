@@ -1,0 +1,123 @@
+{% if item.registry is defined %}
+FROM {{ item.registry.url }}/{{ item.image }}
+{% else %}
+FROM {{ item.image }}
+{% endif %}
+
+{% if item.env is defined %}
+{% for var, value in item.env.items() %}
+{% if value %}
+ENV {{ var }} {{ value }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# ###
+# For usage with ansible molecule
+# Use the following in the molecule.yml
+# Tested with:
+# - ubuntu:focal, ubuntu:bionic, ubuntu:xenial
+# - debian:buster, debian:stretch, debian:jessie
+# - centos:8, centos:7, centos:6
+# - fedora:32, fedora:31, fedora:30
+# - opensuse/leap:15.2, opensuse/leap:15.1, opensuse/leap:15.0
+# - alpine:3.12, alpine:3.11, alpine:3.10
+# ###
+# Some notes:
+#   It seems that some services like mariadb with systemd isn't able to run twice within two differen containers.
+#   This happened when using Ubuntu Focal and Bionic together during the test.
+#   Running just one platform worked fine.
+# ###
+# driver:
+#   name: docker
+# platforms:
+#   - name: molecule-ubuntu-focal
+#     image: ubuntu:focal
+#     dockerfile: Dockerfile.j2
+#     override_command: false
+#     privileged: true
+#     tmpfs:
+#       - /run
+#       - /tmp
+#     volumes:
+#       - /sys/fs/cgroup:/sys/fs/cgroup:ro
+#
+#   - name: molecule-debian-buster
+#     image: debian:buster
+#     env:
+#       APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE: 1
+#     dockerfile: Dockerfile.j2
+#     override_command: false
+#     privileged: true
+#     tmpfs:
+#       - /run
+#       - /tmp
+#     volumes:
+#       - /sys/fs/cgroup:/sys/fs/cgroup:ro
+#
+#   - name: molecule-centos-7
+#     image: centos:7
+#     dockerfile: Dockerfile.j2
+#     override_command: false
+#     privileged: true
+#     tmpfs:
+#       - /run
+#       - /tmp
+#     volumes:
+#       - /sys/fs/cgroup:/sys/fs/cgroup:ro
+# ###
+
+MAINTAINER Mathijs van Veluw - TechNative B.V. <mathijs -AT- technative.nl>
+
+ENV container docker
+ENV LC_ALL=C TZ=UTC TERM=xterm-256color
+
+RUN if [ $(command -v apt-get) ]; then \
+      export DEBIAN_FRONTEND=noninteractive ; \
+      export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 ; \
+      apt-get update \
+      && apt-get install -y dbus systemd gnupg systemd-sysv python3 sudo bash ca-certificates iproute2 python3-apt aptitude \
+      && apt-get clean \
+      && rm -rf /usr/share/doc/* /usr/share/man/* /var/lib/apt/lists/* /tmp/* /var/tmp/*; \
+    elif [ $(command -v dnf) ]; then \
+      dnf makecache \
+      && dnf --assumeyes install /usr/bin/python3 /usr/bin/python3-config /usr/bin/dnf-3 findutils dbus systemd sudo bash iproute \
+      && dnf clean all \
+      && rm -rf /usr/share/doc/* /usr/share/man/* /tmp/* /var/tmp/*; \
+    elif [ $(command -v yum) ]; then \
+      yum makecache fast \
+      && yum install -y /usr/bin/python /usr/bin/python2-config dbus systemd sudo yum-plugin-ovl bash iproute \
+      && sed -i 's/plugins=0/plugins=1/g' /etc/yum.conf \
+      && yum clean all \
+      && rm -rf /usr/share/doc/* /usr/share/man/* /tmp/* /var/tmp/*; \
+    elif [ $(command -v zypper) ]; then \
+      zypper refresh \
+      && zypper install -y python3 dbus-1 systemd systemd-sysvinit sudo bash iproute2 \
+      && zypper clean -a \
+      && rm -rf /usr/share/doc/* /usr/share/man/* /tmp/* /var/tmp/*; \
+    elif [ $(command -v apk) ]; then \
+      apk update \
+      && apk add --no-cache python3 dbus sudo bash ca-certificates \
+      && rm -rf /usr/share/doc/* /usr/share/man/* /tmp/* /var/tmp/*; \
+    fi
+
+# Don't start any optional services except for the few we need.
+# Ignore any errors since some directories could not exists on some distributions
+RUN find /etc/systemd/system \
+      /lib/systemd/system \
+      /usr/lib/systemd/system \
+      -path '*.wants/*' \
+      -not -name '*dbus*' \
+      -not -name '*journald*' \
+      -not -name '*systemd-tmpfiles*' \
+      -not -name '*systemd-user-sessions*' \
+      -exec rm \{} \; ; >/dev/null 2>&1
+
+# If image does have systemd set the default to be multi-user else leave it as is.
+RUN if [ $(command -v systemctl) ]; then \
+      systemctl set-default multi-user.target; \
+    fi
+
+STOPSIGNAL SIGRTMIN+3
+
+CMD ["/sbin/init"]

@@ -1,33 +1,54 @@
 ---
-- name: setup_cluster | checking if galera cluster setup
+- name: Galera | checking if galera cluster setup
   stat:
     path: "/etc/galera_cluster_configured"
   register: "galera_cluster_configured"
 
-- name: setup_cluster | configuring db server and galera
+- name: Firewall | Check if ufw is installed
+  command: "which ufw"
+  become: true
+  ignore_errors: true
+  check_mode: no
+  changed_when: false
+  register: check_ufw
+
+- name: Firewall | Ensure galera ports are accessable
+  ufw:
+    rule: allow
+    direction: in
+    comment: MariaDB Galera Cluster
+    proto: "{{ item.proto }}"
+    to_port: "{{ item.to_port }}"
+  with_items:
+    - { to_port: 4444, proto: tcp }
+    - { to_port: 4567, proto: tcp }
+    - { to_port: 4567, proto: udp }
+    - { to_port: 4568, proto: tcp }
+  when: check_ufw.rc == 0
+
+- name: Galera | configuring db server and galera
   template:
     src: "{{ item }}.j2"
     dest: "/{{ item }}"
   become: true
   register: "_mariadb_galera_cluster_reconfigured_1"
   with_items:
-    # - 'etc/mysql/my.cnf'
     - 'etc/mysql/conf.d/galera.cnf'
 
-- name: setup_cluster | stopping mysql
+- name: Galera | stopping mysql
   service:
     name: "mysql"
     state: "stopped"
   become: true
   when: not galera_cluster_configured.stat.exists
 
-- name: setup_cluster | killing lingering mysql processes
+- name: Galera | killing lingering mysql processes
   command: "pkill mysqld"
   become: true
   ignore_errors: true
   when: not galera_cluster_configured.stat.exists
 
-- name: setup_cluster | configuring temp galera config
+- name: Galera | configuring temp galera config
   template:
     src: "etc/mysql/conf.d/temp.galera.cnf.j2"
     dest: "/etc/mysql/conf.d/galera.cnf"
@@ -36,7 +57,7 @@
     - not galera_cluster_configured.stat.exists
     - inventory_hostname == galera_mysql_master_node
 
-- name: setup_cluster | bootstrapping galera cluster
+- name: Galera | bootstrapping galera cluster
   service:
     name: "mysql"
     state: "restarted"
@@ -45,14 +66,14 @@
     - not galera_cluster_configured.stat.exists
     - inventory_hostname == galera_mysql_master_node
 
-- name: setup_cluster | bootstrapping galera cluster
+- name: Galera | bootstrapping galera cluster
   command: "/usr/bin/galera_new_cluster"
   become: true
   when:
     - not galera_cluster_configured.stat.exists
     - inventory_hostname == galera_mysql_master_node
 
-- name: setup_cluster | joining galera cluster
+- name: Galera | joining galera cluster
   service:
     name: "mysql"
     state: "restarted"
@@ -61,17 +82,17 @@
     - not galera_cluster_configured.stat.exists
     - inventory_hostname != galera_mysql_master_node
 
-- name: setup_cluster | configuring galera on mysql_master
+- name: Galera | configuring galera on mysql_master
   template:
     src: "etc/mysql/conf.d/galera.cnf.j2"
     dest: "/etc/mysql/conf.d/galera.cnf"
   become: true
-  register: "_mariadb_galera_cluster_reconfigured_3"
+  register: "_mariadb_galera_cluster_reconfigured_2"
   when:
     - not galera_cluster_configured.stat.exists
     - inventory_hostname == galera_mysql_master_node
 
-- name: setup_cluster | restarting galera on mysql_master
+- name: Galera | restarting galera on mysql_master
   service:
     name: "mysql"
     state: "restarted"
@@ -80,7 +101,7 @@
     - not galera_cluster_configured.stat.exists
     - inventory_hostname == galera_mysql_master_node
 
-- name: setup_cluster | marking galera cluster as configured
+- name: Galera | marking galera cluster as configured
   file:
     path: "/etc/galera_cluster_configured"
     state: "touch"
@@ -88,47 +109,47 @@
   when: not galera_cluster_configured.stat.exists
 
 # Only restart if cluster has already been configured
-- name: setup_cluster | Restarting MySQL (Master)
+- name: Galera | Restarting MySQL (Master)
   service:
     name: "mysql"
     state: "restarted"
   become: true
   register: "_mariadb_galera_cluster_master_restarted"
   when: >
-        (galera_cluster_configured['stat']['exists'] and
+        (galera_cluster_configured.stat.exists and
         inventory_hostname == galera_mysql_master_node) and
-        (_mariadb_galera_cluster_reconfigured_1['changed'] or
-        _mariadb_galera_cluster_reconfigured_2['changed'] or
-        _mariadb_galera_cluster_reconfigured_3['changed'] or
-        _mariadb_galera_cluster_reconfigured_4['changed'])
+        (_mariadb_galera_cluster_reconfigured_1.changed or
+        _mariadb_galera_cluster_reconfigured_2.changed)
+  tags:
+    - skip_ansible_lint
 
-- name: setup_cluster | Waiting For MySQL (Master)
+- name: Galera | Waiting For MySQL (Master)
   wait_for:
-    port: 3306
+    port: "{{ mariadb_mysql_settings['port'] }}"
     host: "{{ galera_cluster_bind_address }}"
   when:
     - inventory_hostname == galera_mysql_master_node
-    - _mariadb_galera_cluster_master_restarted['changed']
+    - _mariadb_galera_cluster_master_restarted.changed
 
 # Only restart if cluster has already been configured
-- name: setup_cluster | Restarting MySQL (Non-Master)
+- name: Galera | Restarting MySQL (Non-Master)
   service:
     name: "mysql"
     state: "restarted"
   become: true
   register: "_mariadb_galera_cluster_non_master_restarted"
   when: >
-        (galera_cluster_configured['stat']['exists'] and
+        (galera_cluster_configured.stat.exists and
         inventory_hostname != galera_mysql_master_node) and
-        (_mariadb_galera_cluster_reconfigured_1['changed'] or
-        _mariadb_galera_cluster_reconfigured_2['changed'] or
-        _mariadb_galera_cluster_reconfigured_3['changed'] or
-        _mariadb_galera_cluster_reconfigured_4['changed'])
+        (_mariadb_galera_cluster_reconfigured_1.changed or
+        _mariadb_galera_cluster_reconfigured_2.changed)
+  tags:
+    - skip_ansible_lint
 
-- name: setup_cluster | Waiting For MySQL (Non-Master)
+- name: Galera | Waiting For MySQL (Non-Master)
   wait_for:
-    port: 3306
+    port: "{{ mariadb_mysql_settings['port'] }}"
     host: "{{ galera_cluster_bind_address }}"
   when:
     - inventory_hostname != galera_mysql_master_node
-    - _mariadb_galera_cluster_non_master_restarted['changed']
+    - _mariadb_galera_cluster_non_master_restarted.changed

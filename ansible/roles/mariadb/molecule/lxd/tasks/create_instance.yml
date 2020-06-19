@@ -1,0 +1,39 @@
+---
+- name: Initialize instance facts
+  set_fact:
+    instance_created:
+      instances: []
+  when: instance_created is not defined
+
+- name: "Create instance {{ item.name }}"
+  lxd_container:
+    # Mandatory instance items
+    name: "{{ item.name }}"
+    state: started
+    source: "{{ item.source }}"
+    # Optional instance items
+    profiles: "{{ item.profiles | default(omit, true) }}"
+    config: "{{ item.config | default(omit, true) }}"
+    devices: "{{ item.devices | default(omit, true) }}"
+    # Optional lxd_container general item
+    snap_url: "{{ molecule_yml.driver.snap_url | default(omit, true) }}"
+    url: "{{ molecule_yml.driver.url | default(omit, true) }}"
+    architecture: "{{ molecule_yml.driver.architecture | default(omit, true) }}"
+    client_cert: "{{ molecule_yml.driver.client_cert | default(omit, true) }}"
+    client_key: "{{ molecule_yml.driver.client_key | default(omit, true) }}"
+    trust_password: "{{ molecule_yml.driver.trust_password | default(omit, true) }}"
+    wait_for_ipv4_addresses: "{{ molecule_yml.driver.wait_for_ipv4_addresses | default(omit, true) }}"
+    timeout: "{{ molecule_yml.driver.timeout | default(omit, true) }}"
+  register: instance
+
+
+- name: Set instance_data
+  set_fact:
+    instance_data: "{{ instance | combine({'name': item.name}) }}"
+
+
+- name: update instance facts
+  set_fact:
+    instance_created:
+      changed: instance.changed | bool
+      instances: "{{ instance_created.instances + [ instance_data ] }}"

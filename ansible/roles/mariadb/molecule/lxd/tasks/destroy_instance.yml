@@ -1,0 +1,7 @@
+---
+- name: "Delete instance {{ item.name }}"
+  lxd_container:
+    name: "{{ item.name }}"
+    state: absent
+    force_stop: true
+  register: instance

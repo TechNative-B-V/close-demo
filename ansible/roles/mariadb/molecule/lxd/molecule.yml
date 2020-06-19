@@ -1,0 +1,63 @@
+---
+scenario:
+  name: lxd
+
+dependency:
+  name: galaxy
+
+driver:
+  name: delegated
+  # snap_url: "unix:/var/snap/lxd/common/lxd/unix.socket"
+  # url: "https://127.0.0.1:8443" or "unix:/var/lib/lxd/unix.socket"
+  # architecture: "x86_64" or "i686"
+  # client_cert: "\"{}/.config/lxc/client.crt\" .format(os.environ[\"HOME\"])"
+  # client_key: "\"{}/.config/lxc/client.key\" .format(os.environ[\"HOME\"])"
+  # trust_password: SecretPassword
+  # timeout: 30
+  wait_for_ipv4_addresses: true
+
+platforms:
+  # Server selection (simplestreams)
+  # images:         https://images.linuxcontainers.org
+  # ubuntu:         https://cloud-images.ubuntu.com/releases
+  # ubuntu-daily:   https://cloud-images.ubuntu.com/daily
+  # ubuntu-minimal: https://cloud-images.ubuntu.com/minimal/releases
+  - name: mariadb1-ubuntu-focal
+    source:
+      type: image
+      mode: pull
+      server: https://cloud-images.ubuntu.com/minimal/releases
+      protocol: simplestreams
+      alias: focal/amd64
+    groups:
+      - galera_db
+  - name: mariadb2-ubuntu-focal
+    source:
+      type: image
+      mode: pull
+      server: https://cloud-images.ubuntu.com/minimal/releases
+      protocol: simplestreams
+      alias: focal/amd64
+    groups:
+      - galera_db
+  - name: mariadb3-ubuntu-focal
+    source:
+      type: image
+      mode: pull
+      server: https://cloud-images.ubuntu.com/minimal/releases
+      protocol: simplestreams
+      alias: focal/amd64
+    groups:
+      - galera_db
+
+lint: |
+  set -e
+  yamllint .
+  ansible-lint
+  flake8
+
+provisioner:
+  name: ansible
+  log: true
+  # options:
+  #   vvv: true

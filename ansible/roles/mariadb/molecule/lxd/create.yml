@@ -1,0 +1,35 @@
+---
+- name: Create
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: false
+
+  tasks:
+    - name: Create Instance
+      include_tasks: tasks/create_instance.yml
+      loop: "{{ molecule_yml.platforms }}"
+
+
+    - name: Populate instance config dict
+      set_fact:
+        instance_conf_dict: {
+          'instance': "{{ item.name }}",
+          'connection': 'lxd',
+        }
+      with_items: "{{ instance_created.instances }}"
+      register: instance_config_dict
+      when: instance_created.changed
+
+
+    - name: Convert instance config dict to a list
+      set_fact:
+        instance_conf: "{{ instance_config_dict.results | map(attribute='ansible_facts.instance_conf_dict') | list }}"
+      when: instance_created.changed
+
+
+    - name: Dump instance config
+      copy:
+        content: "{{ instance_conf | to_json | from_json | molecule_to_yaml | molecule_header }}"
+        dest: "{{ molecule_instance_config }}"
+      when: instance_created.changed

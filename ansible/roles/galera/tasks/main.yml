@@ -1,8 +1,0 @@
----
-# tasks file for galera
-- include: unconfigure_cluster.yml
-  when:
-    - galera_reconfigure_galera is defined
-    - galera_reconfigure_galera
-
-- include: setup_cluster.yml

@@ -5,6 +5,3 @@ ansible_python_interpreter=/usr/bin/python3
 close-db1 ansible_connection=lxd
 close-db2 ansible_connection=lxd
 close-db3 ansible_connection=lxd
-
-[close_proxysql]
-close-proxysql ansible_connection=lxd

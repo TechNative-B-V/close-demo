@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    mariadb_root_password: S3cr3tMoleculePassw0rd
+  tasks:
+    - name: "Include mariadb"
+      include_role:
+        name: "mariadb"

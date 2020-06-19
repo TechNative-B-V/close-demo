@@ -1,0 +1,90 @@
+---
+# tasks file for mariadb
+- name: Check variables
+  assert:
+    that:
+      - mariadb_version is defined
+      - mariadb_root_password is defined
+
+- name: APT - Pre Install some needed packages
+  apt:
+    update_cache: yes
+    name:
+      - apt-transport-https
+      - software-properties-common
+
+- name: APT - Add MariaDB Repo Key
+  apt_key:
+    url: https://mariadb.org/mariadb_release_signing_key.asc
+    state: present
+
+- name: APT - Add MariaDB Repo
+  apt_repository:
+    repo: "deb [arch=amd64] {{ mariadb_mirror }}/{{ mariadb_version }}/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} main"
+    state: present
+    filename: mariadb
+    update_cache: yes
+
+- name: APT - Install mariadb
+  apt:
+    update_cache: yes
+    state: present
+    force: yes
+    name:
+      - "mariadb-server-{{ mariadb_version }}"
+      - "mariadb-client-{{ mariadb_version }}"
+      - galera-4
+      - rsync
+      - python3-mysqldb
+      - python3-pymysql
+
+- name: MariaDB | configuring db server
+  template:
+    src: "{{ item }}.j2"
+    dest: "/{{ item }}"
+  become: true
+  with_items:
+    - 'etc/mysql/my.cnf'
+  notify: restart mariadb
+
+- name: Service - Ensure MariaDB is Started and Enabled
+  service:
+    name: mariadb
+    enabled: yes
+    state: started
+
+# We need to set a root password first after a clean install
+# For this we use the login_unix_socket, else a connection will fail
+- name: MariaDB - Update root user password
+  mysql_user:
+    check_implicit_admin: yes
+    login_password: "{{ mariadb_root_password }}"
+    login_user: root
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: root
+    host: "{{ item }}"
+    password: "{{ mariadb_root_password }}"
+    priv: "*.*:ALL,GRANT"
+  become: true
+  with_items:
+    - "{{ ansible_hostname }}"
+    - "127.0.0.1"
+    - "::1"
+    - "localhost"
+    - "%"
+  no_log: true
+  # Ignore errors if there already is a password set
+  ignore_errors: true
+
+- name: MariaDB | configuring root .my.cnf
+  become: true
+  no_log: true
+  template:
+    src: "root/my.cnf.j2"
+    dest: "/root/.my.cnf"
+    owner: "root"
+    group: "root"
+    mode: 0600
+
+# Force flush of the handlers
+- meta: flush_handlers

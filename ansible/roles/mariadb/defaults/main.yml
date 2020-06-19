@@ -1,2 +1,35 @@
 ---
 # defaults file for mariadb
+mariadb_version: '10.4'
+# The mirror used for installing MariaDB
+# For mirrors see: https://downloads.mariadb.org/mariadb/repositories/#distro=Ubuntu&version=10.4
+# ###
+# !IMPORTANT!
+# Only use the URL until the /repo part, everything after that should be removed!
+# So: http://ams2.mirrors.digitalocean.com/mariadb/repo/10.4/ubuntu
+# Becomse: http://ams2.mirrors.digitalocean.com/mariadb/repo
+# Also, remove the last / after /repo.
+# ###
+mariadb_mirror: http://ams2.mirrors.digitalocean.com/mariadb/repo
+# mariadb_root_password: SomeSecretPassword!
+
+mariadb_mysql_settings:
+  port: 3306
+  datadir: /var/lib/mysql
+  expire_logs_days: 10
+  key_buffer_size: 128M
+  max_allowed_packet: 16M
+  max_binlog_size: 100M
+  query_cache_limit: 128K
+  query_cache_size: 64M
+  thread_cache_size: 128
+  max_connections: 100
+  innodb_buffer_pool_size: 256M
+
+# Galera Cluster
+galera_cluster_bind_interface: eth0
+galera_cluster_name: 'galera-cluster'
+galera_cluster_nodes_group: 'galera_db'
+
+galera_mysql_master_node: '{{ groups[galera_cluster_nodes_group][0] }}'
+galera_cluster_bind_address: "{{ hostvars[inventory_hostname]['ansible_' + galera_cluster_bind_interface]['ipv4']['address'] }}"

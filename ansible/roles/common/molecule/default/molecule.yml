@@ -1,0 +1,29 @@
+---
+scenario:
+  name: default
+
+dependency:
+  name: galaxy
+
+driver:
+  name: docker
+
+platforms:
+  - name: common-ubuntu-focal
+    image: ubuntu:focal
+  - name: common-ubuntu-bionic
+    image: ubuntu:bionic
+  - name: common-ubuntu-xenial
+    image: ubuntu:xenial
+
+lint: |
+  set -e
+  yamllint .
+  ansible-lint
+  flake8
+
+provisioner:
+  name: ansible
+  log: true
+  # options:
+  #   vvv: true

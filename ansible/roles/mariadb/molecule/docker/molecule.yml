@@ -1,0 +1,55 @@
+---
+scenario:
+  name: docker
+
+dependency:
+  name: galaxy
+
+driver:
+  name: docker
+
+platforms:
+  - name: mariadb1-ubuntu-focal
+    image: ubuntu:focal
+    dockerfile: Dockerfile.j2
+    override_command: false
+    privileged: true
+    networks:
+      - name: galera
+    purge_networks: true
+    groups:
+      - galera_db
+
+  - name: mariadb2-ubuntu-focal
+    image: ubuntu:focal
+    dockerfile: Dockerfile.j2
+    override_command: false
+    privileged: true
+    networks:
+      - name: galera
+    purge_networks: true
+    groups:
+      - galera_db
+
+  - name: mariadb3-ubuntu-focal
+    image: ubuntu:focal
+    dockerfile: Dockerfile.j2
+    override_command: false
+    privileged: true
+    networks:
+      - name: galera
+    purge_networks: true
+    groups:
+      - galera_db
+
+lint: |
+  set -e
+  yamllint .
+  ansible-lint
+  flake8
+
+provisioner:
+  name: ansible
+  log: true
+  # options:
+  #   vvv: true
